@@ -15,3 +15,12 @@
     buffile.h buffile.cpp
 
 ``` 
+
+### 测试
+
+```
+    在test目录执行：
+    g++ -o main  main.cpp ../src/szconf.cpp ../src/buffile.cpp  -I../include -lpthread
+
+```
+
