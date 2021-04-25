@@ -18,14 +18,27 @@
 }
 
 
+
+//test out debug info
+
+#define DEF_DEBUG   0
+
+
+
+
 void SLink::Put(void * p)
 {
+    if (p == nullptr)
+        return;
+
     Link* link = (Link*)p;	
-    def_lock(spin);
     link->next = nullptr;
+
+    def_lock(spin);
     tail->next = link;
     tail = link;
-    count;
+
+    ++count;
     def_unlock(spin);
 }
 
@@ -55,6 +68,9 @@ DLink::DLink()
 
 void DLink::Put(void * p)
 {
+    if (p == nullptr)
+       return;
+
     Link* link = (Link*)p;
     link->next = nullptr;
     link->prev = nullptr;
@@ -124,9 +140,10 @@ BufFile::~BufFile()
        _pbuf = nullptr;
    }
 
-   if (_useable_buf) {
-       delete[] _useable_buf;
-       _useable_buf = nullptr;
+   if (_arrbuf_indx) {
+       free(_arrbuf_indx);
+       _arrbuf_indx = nullptr;
+       _buf_count = 0;
    }
 }
 
@@ -138,21 +155,23 @@ int BufFile::Open(const char* path, const char* filename, int id, int buf_size, 
     _buf_count = buf_count;
     _buf_size = buf_size;   
     _pbuf = (char*)malloc(buf_size * buf_count);
-    _useable_buf = new BufIndx[_buf_count];
+  
+    _arrbuf_indx = (BufIndx*)malloc(sizeof(BufIndx) * _buf_count);
     
     for (int i = 0; i < _buf_count; ++i) {
-        _useable_buf[i].index = i;
-	_useable_buf[i].buf_size = buf_size;
-	_useable_buf[i].pbuf = &_pbuf[buf_size * i];
-        _useable_buf[i].w_pos = 0;
-	_idle_link.Put(&_useable_buf[i]);
+        _arrbuf_indx[i].index = i;
+	_arrbuf_indx[i].buf_size = buf_size;
+	_arrbuf_indx[i].pbuf = &_pbuf[buf_size * i];
+        _arrbuf_indx[i].w_pos = 0;
+
+	_idle_link.Put((void*)(_arrbuf_indx + i));
     }
 
     _id = id;
     _w_buf_index = 0;
     _enable = true;
     _stop = false;
-
+ 
     int ret = pthread_create(&_th, nullptr, OnWriteFile, this);
     if (ret != 0) {
         return -1;
@@ -166,52 +185,46 @@ BufIndx* BufFile::GetIdleBuf()
 {
     int i = 0;	
     void* p = nullptr;	
+    BufIndx* buf_indx = nullptr;
+
     do {	
-       p = _idle_link.Pop();
-       if (p == nullptr) {
-           if (++i % 100)
-              usleep(10);
+        p = _idle_link.Pop();
+        if (p == nullptr) {
+	    if (++i % 100)
+                usleep(10);
+	}
 	    
-	   continue;
-       }
-    } while (0);
-    ((BufIndx*)p)->sectime = time(0);
-    return (BufIndx*)p;
-}
+    } while (p == nullptr);
+    
+    if (p) {
+        buf_indx = (BufIndx*)p;
+        buf_indx->sectime = time(0);
+    }
 
-void BufFile::Put(BufIndx* p)
-{
-    _useable_link.Put(p);
+    return buf_indx;
 }
-
 
 int BufFile::Write(BufIndx*& bufindex, char* buf, uint32_t size)
 {
     if (!_enable)
        return -1;
-    
+   
 _lb1:   
     if (bufindex == nullptr) {
-        bufindex =  GetIdleBuf();
-        _work_link.Put(bufindex);
-        //printf("get _idle_link \n");	
-    }
-
-    if (bufindex == nullptr) {
-	printf(" bufindex == nullptr line=%d ", __LINE__);    
-        return -2;
+        bufindex = GetIdleBuf();
+	_work_link.Put(bufindex);    	
     }
 
     def_lock(_work_link.spin);
     int ret = bufindex->Write(buf, size);
 
     if (ret == -1) {
+        //bufindex full
         if (_work_link.Remove(bufindex) == 0) 
-            _useable_link.Put(bufindex);    
+            _store_link.Put(bufindex);    
         def_unlock(_work_link.spin);
 
 	bufindex = nullptr;
-	//printf("put _useable_link \n");
 	goto _lb1;
     }
 
@@ -221,6 +234,9 @@ _lb1:
 
 void BufFile::Close()
 {
+#if (DEF_DEBUG == 1)	
+    printf("BufFile::Close\n");	
+#endif    
     _stop = true;
     pthread_join(_th, nullptr);
 }
@@ -256,13 +272,14 @@ void* BufFile::DoWrite()
 	    w_count = 0;
         }
 
-	BufIndx* bufindex = (BufIndx*)_useable_link.Pop();
+	BufIndx* bufindex = (BufIndx*)_store_link.Pop();
 	if (bufindex) {
             bufindex->Save(file);
             w_count++;
             _idle_link.Put(bufindex);
-
-	   // printf("save count=%d\n", w_count);
+#if (DEF_DEBUG == 1)
+	    printf("save count=%d\n", w_count);
+#endif
 	    continue;
 	}
 
@@ -276,9 +293,10 @@ void* BufFile::DoWrite()
 	        bufindex->Save(file);
                 w_count++;
                 node = (Link*)node->next;      
-
-	//	printf("delay w_count=%d\n", w_count);
-            }	
+#if (DEF_DEBUG == 1)
+		printf("delay w_count=%d\n", w_count);
+#endif     
+     	    }	
 	    def_unlock(_work_link.spin);
 	    last_time = time(0);
         }
@@ -295,6 +313,9 @@ void* BufFile::DoWrite()
 	}   
     }
 
+#if (DEF_DEBUG == 1)     
+    printf(" %s exit\n", __func__);  
+#endif    
     return nullptr;
 }
 

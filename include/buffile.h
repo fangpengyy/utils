@@ -55,8 +55,8 @@ struct BufIndx
     int index;
     uint32_t buf_size;
     uint32_t w_pos;
-    char* pbuf;
     uint32_t sectime;
+    char* pbuf;
 
     void Clean() {
        w_pos = 0;
@@ -94,42 +94,39 @@ class BufFile
 {
 
 public:
-   BufFile();
-   ~BufFile();
-   int Open(const char* path, const char* filename, int id, int buf_size, int buf_count);
-   int Write(BufIndx*& bufindex, char* buf, uint32_t size);
-   void Close();
+    BufFile();
+    ~BufFile();
+    int Open(const char* path, const char* filename, int id, int buf_size, int buf_count);
+    int Write(BufIndx*& bufindex, char* buf, uint32_t size);
+    void Close();
 
-   void Flush(BufIndx* bufindex);
+    void Flush(BufIndx* bufindex);
 
-   BufIndx* GetIdleBuf();
-   void Put(BufIndx* p);
+    BufIndx* GetIdleBuf();
 private:
-   static void* OnWriteFile(void* param);
-   void* DoWrite();
+    static void* OnWriteFile(void* param);
+    void* DoWrite();
 
 
 private:
-   uint32_t _buf_count;
-   uint32_t _buf_size;
-   char* _pbuf;
-   BufIndx* _useable_buf;
+    uint32_t _buf_count;
+    uint32_t _buf_size;
+    char* _pbuf;
+    BufIndx* _arrbuf_indx;
+    SLink _idle_link;
    
-   SLink _idle_link;
-   SLink _useable_link;
+    SLink _store_link;
+    DLink _work_link;
 
-   DLink _work_link;
+    char _path[256];
+    char _filename[32];
+    int _id; 
 
-   char _path[256];
-   char _filename[32];
-   int _id; 
+    pthread_t _th;
+    int _w_buf_index;
 
-   pthread_t _th;
-
-   int _w_buf_index;
-
-   bool  _stop;
-   bool _enable; 
+    bool  _stop;
+    bool _enable; 
 };
 
 

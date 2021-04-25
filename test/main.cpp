@@ -100,11 +100,13 @@ int main()
 
                  pthread_t th;
                  pthread_create(&th, nullptr, OnWrite, &bfile);
-                 pthread_detach(th);
-
+                
                  pthread_t th1;
                  pthread_create(&th1, nullptr, OnWrite, &bfile);
-                 pthread_detach(th1);
+                 
+		 printf(" wait ....\n");
+		 pthread_join(th1, nullptr);
+		 pthread_join(th, nullptr);
                  break;
             }
 
