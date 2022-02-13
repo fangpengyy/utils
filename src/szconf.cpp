@@ -121,34 +121,34 @@ int SZConfig::Flush()
     return 0;
 }
 
-const char* SZConfig::ReadString(const char* key)
+const char* SZConfig::ReadString(const char* key, const char* defval)
 {
     TSzMap::iterator it = _map.find(key);
     if (it != _map.end()) {
         SZValue& value = it->second;
         return value.data;
     }
-    return nullptr;
+    return defval;
 }
 
-int SZConfig::ReadInt(const char* key)
+int SZConfig::ReadInt(const char* key, int defval)
 {
     TSzMap::iterator it = _map.find(key);
     if (it != _map.end()) {
         SZValue& value = it->second;
         return atoi(value.data);
     }
-    return 0;
+    return defval;
 }
 
-double SZConfig::ReadDouble(const char* key)
+double SZConfig::ReadDouble(const char* key, double defval)
 {
     TSzMap::iterator it = _map.find(key);
     if (it != _map.end()) {
         SZValue& value = it->second;
 	return atof(value.data);
     }
-    return 0;
+    return defval;
 }
 
 int SZConfig::ReadArray(const char* key, std::vector<std::string>& vecValue)
@@ -251,16 +251,14 @@ void SZConfig::GetDataStr(std::string& str)
 {
     if (_map.size() == 0)
     {
-	str = " "; 
+        str = " "; 
         return; 	
     }	
 
     char buf[128];
-    int j = 0;
     TSzMap::iterator it = _map.begin();
     while (it != _map.end()) {
-        j = sprintf(buf, "%s=%s\n", it->first.c_str(), it->second.data); 
-	buf[j] = '\0';
+        sprintf(buf, "%s=%s\n", it->first.c_str(), it->second.data); 
 	str.append(buf);
 	++it;
     }

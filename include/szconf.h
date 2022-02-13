@@ -77,9 +77,9 @@ public:
 
     void Remove(const char* name);
 
-    const char* ReadString(const char* key);
-    int ReadInt(const char* key);
-    double ReadDouble(const char* key);
+    const char* ReadString(const char* key, const char* defval);
+    int ReadInt(const char* key, int defval);
+    double ReadDouble(const char* key, double defval);
     int ReadArray(const char* key, std::vector<std::string>& vecValue);
     
     void GetDataStr(std::string& str);
